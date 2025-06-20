@@ -1,61 +1,82 @@
-import axios from 'axios';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import AuthContext from "../context/AuthContext";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const LoginPage = () => {
+  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const login = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await axios.post('/api/auth/login', { email, password });
-      localStorage.setItem('token', res.data.token);
-      alert('Login successful');
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+  });
 
-      // Redirect based on user role if available
-      const userRole = res.data.role || 'tenant'; // fallback role
-      if (userRole === 'landlord') {
-        navigate('/landlord-dashboard');
-      } else {
-        navigate('/tenant-dashboard');
+  const [error, setError] = useState("");
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Invalid login");
+        return;
       }
 
+      login({
+        token: data.token,
+        name: data.name,
+        role: data.role,
+      });
+
+      navigate(data.role === "tenant" ? "/tenant-dashboard" : "/landlord-dashboard");
     } catch (err) {
-      alert('Login failed');
+      setError("Network error. Please try again.");
     }
   };
 
   return (
-    <div>
-      <h1>Login</h1>
-      <form onSubmit={login}>
+    <div style={{ padding: "1rem" }}>
+      <h2>Login</h2>
+      <form onSubmit={handleSubmit}>
         <input
+          name="email"
           type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
           placeholder="Email"
+          value={form.email}
+          onChange={handleChange}
           required
         /><br />
 
         <input
+          name="password"
           type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
           placeholder="Password"
+          value={form.password}
+          onChange={handleChange}
           required
         /><br />
 
         <button type="submit">Login</button>
+        {error && <p style={{ color: "red" }}>{error}</p>}
       </form>
-
-      <p>
-        Don't have an account?{' '}
-        <button onClick={() => navigate('/register')}>
-          Register
-        </button>
-      </p>
     </div>
   );
-}
+};
+
+export default LoginPage;
+
